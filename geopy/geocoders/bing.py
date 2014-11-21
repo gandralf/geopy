@@ -67,7 +67,8 @@ class Bing(Geocoder):
             timeout=None,
             culture=None,
             include_neighborhood=None,
-            include_country_code=False
+            include_country_code=False,
+            restrict_to=None
             ):  # pylint: disable=W0221
         """
         Geocode an address.
@@ -106,6 +107,10 @@ class Bing(Geocoder):
             'countryRegionIso2').
 
             .. versionadded:: 1.4.0
+
+        :param restrict_to: Restricts results to a subset of location
+        types. e.g. ['Address', 'CountryRegion']
+
         """
         params = {
             'query': self.format_string % query,
@@ -128,7 +133,8 @@ class Bing(Geocoder):
         logger.debug("%s.geocode: %s", self.__class__.__name__, url)
         return self._parse_json(
             self._call_geocoder(url, timeout=timeout),
-            exactly_one
+            exactly_one=exactly_one,
+            restrict_to=restrict_to
         )
 
     def reverse(self, query, exactly_one=True, timeout=None):
@@ -157,11 +163,11 @@ class Bing(Geocoder):
         logger.debug("%s.reverse: %s", self.__class__.__name__, url)
         return self._parse_json(
             self._call_geocoder(url, timeout=timeout),
-            exactly_one
+            exactly_one=exactly_one
         )
 
     @staticmethod
-    def _parse_json(doc, exactly_one=True):  # pylint: disable=W0221
+    def _parse_json(doc, exactly_one=True, restrict_to=None):  # pylint: disable=W0221
         """
         Parse a location name, latitude, and longitude from an JSON response.
         """
@@ -191,10 +197,20 @@ class Bing(Geocoder):
             if latitude and longitude:
                 latitude = float(latitude)
                 longitude = float(longitude)
+            entity_type = resource['entityType']
 
             return Location(location, (latitude, longitude), resource)
 
+        parsed_resources = [
+            parse_resource(resource)
+            for resource in resources
+
+            if restrict_to is None or resource['entityType'] in restrict_to]
+
+        if not parsed_resources:
+            return None
+
         if exactly_one:
-            return parse_resource(resources[0])
+            return parsed_resources[0]
         else:
-            return [parse_resource(resource) for resource in resources]
+            return parsed_resources

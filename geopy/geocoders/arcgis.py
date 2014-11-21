@@ -108,7 +108,7 @@ class ArcGIS(Geocoder):  # pylint: disable=R0921,R0902,W0223
         )
         return self._base_call_geocoder(request, timeout=timeout)
 
-    def geocode(self, query, exactly_one=True, timeout=None):
+    def geocode(self, query, exactly_one=True, timeout=None, restrict_to=None):
         """
         Geocode a location query.
 
@@ -121,6 +121,9 @@ class ArcGIS(Geocoder):  # pylint: disable=R0921,R0902,W0223
             to respond before raising a :class:`geopy.exc.GeocoderTimedOut`
             exception. Set this only if you wish to override, on this call
             only, the value set during the geocoder's initialization.
+
+        :param restrict_to: Restricts results to a subset of location
+        types. e.g. ['Address', 'CountryRegion']
         """
         params = {'text': query, 'f': 'json'}
         if exactly_one is True:
@@ -145,6 +148,9 @@ class ArcGIS(Geocoder):  # pylint: disable=R0921,R0902,W0223
         geocoded = []
         for resource in response['locations']:
             geometry = resource['feature']['geometry']
+            addr_type = resource['feature']['attributes']['Addr_Type']
+            if restrict_to is not None and addr_type not in restrict_to:
+                continue
             geocoded.append(
                 Location(
                     resource['name'], (geometry['y'], geometry['x']), resource
