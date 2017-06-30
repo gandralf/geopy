@@ -54,6 +54,21 @@ class ArcGISTestCase(GeocoderTestBase):
             {"latitude": 39.916, "longitude": 116.390},
         )
 
+    def test_restrict_to(self):
+        for addr, correct in [('560 Sutter Street, San Francisco',
+                               (37.78912769478836, -122.40954304607402)),
+                              ('100 Market Street, San Francisco, CA',
+                               (37.79368355870247, -122.39589214324951)),
+                              ('United States of America', None),
+                              ('Union Square, San Francisco', None),
+                              ]:
+            loc = self.geocoder.geocode(addr, restrict_to=['PointAddress'])
+            if correct is None:
+                self.assertIsNone(loc)
+            else:
+                self.assertAlmostEqual(correct[0], loc.latitude, places=3)
+                self.assertAlmostEqual(correct[1], loc.longitude, places=3)
+
     def test_reverse_point(self):
         """
         ArcGIS.reverse using point

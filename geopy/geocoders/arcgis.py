@@ -108,7 +108,7 @@ class ArcGIS(Geocoder):  # pylint: disable=R0921,R0902,W0223
         )
         return self._base_call_geocoder(request, timeout=timeout)
 
-    def geocode(self, query, exactly_one=True, timeout=None):
+    def geocode(self, query, exactly_one=True, timeout=None, restrict_to=None):
         """
         Geocode a location query.
 
@@ -121,6 +121,9 @@ class ArcGIS(Geocoder):  # pylint: disable=R0921,R0902,W0223
             to respond before raising a :class:`geopy.exc.GeocoderTimedOut`
             exception. Set this only if you wish to override, on this call
             only, the value set during the geocoder's initialization.
+
+        :param restrict_to: Restricts results to a subset of location
+        types. e.g. ['Address', 'CountryRegion']
         """
         params = {'text': query, 'f': 'json'}
         if exactly_one is True:
@@ -145,14 +148,32 @@ class ArcGIS(Geocoder):  # pylint: disable=R0921,R0902,W0223
         geocoded = []
         for resource in response['locations']:
             geometry = resource['feature']['geometry']
+            if restrict_to is not None:
+                if self.address_type(resource) not in restrict_to:
+                    continue
             geocoded.append(
                 Location(
                     resource['name'], (geometry['y'], geometry['x']), resource
                 )
             )
-        if exactly_one is True:
+        if exactly_one is True and len(geocoded) > 0:
             return geocoded[0]
+        elif len(geocoded) == 0:
+            return None
         return geocoded
+
+    @staticmethod
+    def address_type(resource):
+        addr_type = resource['feature']['attributes'].get('Addr_Type', None)
+        if addr_type is None:
+            extent = resource['extent']
+            delta_x = extent['xmax'] - extent['xmin']
+            delta_y = extent['ymax'] - extent['ymin']
+            # close enough to be considered a PointAddress?
+            if delta_x + delta_y <= 0.005:
+                addr_type = 'PointAddress'
+
+        return addr_type
 
     def reverse(self, query, exactly_one=True, timeout=None, # pylint: disable=R0913,W0221
                         distance=None, wkid=DEFAULT_WKID):
